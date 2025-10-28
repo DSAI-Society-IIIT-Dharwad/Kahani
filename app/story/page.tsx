@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Clock, BookOpen, Send, Zap } from "lucide-react"
+import { KahaniApiError, editStoryLine, fetchStoryLines, suggestStoryLine, type StoryLinePayload, isKahaniApiConfigured } from "@/lib/kahani-api"
+import { ArrowLeft, BookOpen, Send, Users, Zap } from "lucide-react"
 
 interface StorySentence {
     id: number
@@ -38,6 +39,9 @@ interface Story {
     color: string
     bgColor: string
     image: string
+    authorName: string
+    authorTitle: string
+    authorImage: string
 }
 
 // Mock data for collaborative sentences
@@ -93,6 +97,26 @@ const mockSentences: Record<number, StorySentence[]> = {
     ]
 }
 
+const staticOnlinePlayers = [
+    { name: "StoryWeaver92", role: "Plot Architect" },
+    { name: "LunaDreams", role: "Character Artist" },
+    { name: "InkSlinger", role: "Scene Builder" },
+    { name: "MythMaker", role: "Twist Specialist" }
+]
+
+const gradientPalette = [
+    "from-purple-400 to-purple-600",
+    "from-blue-400 to-blue-600",
+    "from-green-400 to-green-600",
+    "from-pink-400 to-pink-600",
+    "from-yellow-400 to-yellow-600",
+    "from-red-400 to-red-600",
+    "from-indigo-400 to-indigo-600",
+    "from-teal-400 to-teal-600"
+]
+
+const getRandomGradient = () => gradientPalette[Math.floor(Math.random() * gradientPalette.length)]
+
 const stories = [
     {
         id: 1,
@@ -101,6 +125,9 @@ const stories = [
         color: "from-emerald-400 via-emerald-500 to-teal-600",
         bgColor: "bg-gradient-to-br from-emerald-50 via-emerald-100 to-teal-200",
         image: "/magical-forest-illustration.jpg",
+        authorName: "Maya Evergreen",
+        authorTitle: "Fantasy Storyteller",
+        authorImage: "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=400&q=80",
     },
     {
         id: 2,
@@ -109,6 +136,9 @@ const stories = [
         color: "from-blue-400 via-cyan-500 to-indigo-600",
         bgColor: "bg-gradient-to-br from-blue-50 via-cyan-100 to-indigo-200",
         image: "/ocean-underwater-illustration.jpg",
+        authorName: "Kai Mariner",
+        authorTitle: "Explorer of the Deep",
+        authorImage: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=400&q=80",
     },
     {
         id: 3,
@@ -117,6 +147,9 @@ const stories = [
         color: "from-orange-400 via-red-500 to-pink-600",
         bgColor: "bg-gradient-to-br from-orange-50 via-red-100 to-pink-200",
         image: "/mountain-peak-illustration.jpg",
+        authorName: "Elias Summit",
+        authorTitle: "Keeper of Legends",
+        authorImage: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80",
     },
     // Add other stories as needed...
 ]
@@ -133,8 +166,34 @@ export default function CollaborativeStoryGame() {
     const [playerName, setPlayerName] = useState("")
     const [hasJoined, setHasJoined] = useState(false)
     const [currentPlayer, setCurrentPlayer] = useState<ActivePlayer | null>(null)
+    const [showPlayers, setShowPlayers] = useState(false)
+    const [isSyncing, setIsSyncing] = useState(false)
+    const [isSuggesting, setIsSuggesting] = useState(false)
+    const [apiError, setApiError] = useState<string | null>(null)
+    const [suggestedLine, setSuggestedLine] = useState<string | null>(null)
+    const [suggestionContext, setSuggestionContext] = useState<Array<Record<string, unknown>>>([])
+    const [lastProposedLine, setLastProposedLine] = useState<string | null>(null)
+    const apiConfigured = isKahaniApiConfigured()
 
     const messagesEndRef = useRef<HTMLDivElement>(null)
+
+    const transformStoryLines = (lines: StoryLinePayload[]) => {
+        return lines
+            .map((line, index) => {
+                const text = line.final_text || line.suggestion
+                if (!text) return null
+                return {
+                    id: line.id ?? index + 1,
+                    text,
+                    author: line.user_id || "Kahani AI",
+                    timestamp: line.created_at ? new Date(line.created_at).toLocaleString() : "Just now",
+                    color: getRandomGradient(),
+                    likes: 0,
+                    isLiked: false
+                } satisfies StorySentence
+            })
+            .filter(Boolean) as StorySentence[]
+    }
 
     // Initialize game
     useEffect(() => {
@@ -143,9 +202,44 @@ export default function CollaborativeStoryGame() {
             setStory(foundStory)
         }
 
-        const storySentences = mockSentences[storyId] || []
-        setSentences(storySentences)
-    }, [storyId])
+        const fallbackSentences = mockSentences[storyId] || []
+        setSentences(fallbackSentences)
+        setApiError(null)
+
+        if (!apiConfigured) {
+            return
+        }
+
+        let cancelled = false
+
+        const syncStoryLines = async () => {
+            setIsSyncing(true)
+            try {
+                const lines = await fetchStoryLines()
+                if (!cancelled && Array.isArray(lines) && lines.length > 0) {
+                    const mapped = transformStoryLines(lines)
+                    if (mapped.length) {
+                        setSentences(mapped)
+                    }
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    const message = error instanceof KahaniApiError ? error.message : "Unable to load story lines from Kahani service."
+                    setApiError(message)
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsSyncing(false)
+                }
+            }
+        }
+
+        syncStoryLines()
+
+        return () => {
+            cancelled = true
+        }
+    }, [storyId, apiConfigured])
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -173,26 +267,84 @@ export default function CollaborativeStoryGame() {
         if (!newSentence.trim() || isSubmitting || !currentPlayer) return
 
         setIsSubmitting(true)
+        setApiError(null)
 
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 800))
+        const trimmedText = newSentence.trim()
+        const sentenceColor = currentPlayer.color || getRandomGradient()
+        const timestampLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
         const newSentenceObj: StorySentence = {
             id: sentences.length + 1,
-            text: newSentence.trim(),
+            text: trimmedText,
             author: currentPlayer.name,
-            timestamp: "Just now",
-            color: currentPlayer.color,
+            timestamp: timestampLabel,
+            color: sentenceColor,
             likes: 0,
             isLiked: false
         }
 
-        setSentences([...sentences, newSentenceObj])
+        setSentences(prev => [...prev, newSentenceObj])
         setNewSentence("")
-        setIsSubmitting(false)
+        setSuggestedLine(null)
+        setSuggestionContext([])
+        setLastProposedLine(null)
 
         // Update player score
         setCurrentPlayer(prev => prev ? { ...prev, score: prev.score + 10 } : null)
+
+        try {
+            if (apiConfigured) {
+                const payload = {
+                    llm_proposed: lastProposedLine || suggestedLine || trimmedText,
+                    final_text: trimmedText,
+                    user_id: currentPlayer.id
+                }
+                await editStoryLine(payload)
+            }
+        } catch (error) {
+            const message = error instanceof KahaniApiError ? error.message : "We saved the line locally but syncing with Kahani failed."
+            setApiError(message)
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
+    const handleSuggestLine = async () => {
+        if (!apiConfigured || !story) {
+            setApiError("Kahani backend is not configured.")
+            return
+        }
+
+        setIsSuggesting(true)
+        setApiError(null)
+
+        try {
+            const prompt = newSentence.trim() || `Continue the story "${story.title}"`;
+            const response = await suggestStoryLine({
+                user_prompt: prompt,
+                user_id: currentPlayer?.id || playerName || "default_user"
+            })
+
+            setSuggestedLine(response.suggestion)
+            setLastProposedLine(response.suggestion)
+            setSuggestionContext(response.context_used || [])
+
+            if (!newSentence.trim()) {
+                setNewSentence(response.suggestion)
+            }
+        } catch (error) {
+            const message = error instanceof KahaniApiError ? error.message : "Unable to fetch suggestion from Kahani AI."
+            setApiError(message)
+        } finally {
+            setIsSuggesting(false)
+        }
+    }
+
+    const handleInputChange = (value: string) => {
+        if (suggestedLine && value.trim() !== suggestedLine.trim()) {
+            setLastProposedLine(null)
+        }
+        setNewSentence(value)
     }
 
     const handleLikeSentence = (sentenceId: number) => {
@@ -263,10 +415,10 @@ export default function CollaborativeStoryGame() {
     }
 
     return (
-        <div className={`min-h-screen ${story.bgColor} transition-all duration-1000`}>
+        <div className={`h-screen ${story.bgColor} transition-all duration-1000 flex flex-col overflow-hidden`}>
             {/* Game Header */}
             <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-white/20">
-                <div className="max-w-4xl mx-auto px-4 py-3">
+                <div className="w-full px-6 py-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <Button
@@ -302,104 +454,234 @@ export default function CollaborativeStoryGame() {
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto p-4">
-                {/* Story Content */}
-                <div className="flex-1 space-y-4">
-                    {/* Story Introduction */}
-                    <Card className="bg-white/70 backdrop-blur-sm border-white/30">
-                        <CardHeader>
-                            <CardTitle className="text-xl text-center bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                                {story.title}
-                            </CardTitle>
-                            <p className="text-center text-gray-600 italic">{story.description}</p>
-                        </CardHeader>
-                    </Card>
+            <main className="flex-1 overflow-hidden">
+                <div className="w-full h-full px-6 py-6 lg:flex lg:items-stretch lg:gap-6 overflow-hidden">
+                    {/* Sidebar with author + players */}
+                    <aside className="lg:w-1/4 mb-6 lg:mb-0 overflow-hidden lg:h-full">
+                        <Card className="bg-white/80 backdrop-blur-sm border-white/30 h-full flex flex-col">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-lg text-gray-800 flex items-center gap-2">
+                                    <BookOpen className="w-5 h-5 text-blue-500" />
+                                    Story Author & Players
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex-1 flex flex-col space-y-4 overflow-hidden">
+                                <div className="space-y-3">
+                                    <div className="rounded-xl overflow-hidden h-40 bg-gray-200">
+                                        <img
+                                            src={story.authorImage}
+                                            alt={`${story.authorName} portrait`}
+                                            className="h-full w-full object-cover"
+                                        />
+                                    </div>
+                                    <div>
+                                        <p className="text-base font-semibold text-gray-800">{story.authorName}</p>
+                                        <p className="text-sm text-gray-500">{story.authorTitle}</p>
+                                    </div>
+                                    <p className="text-sm text-gray-600 leading-relaxed">
+                                        "Every sentence is a doorway to a new adventure. Keep the magic alive with your words!"
+                                    </p>
+                                </div>
 
-                    {/* Story Sentences */}
-                    <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {sentences.map((sentence, index) => (
-                            <Card key={sentence.id} className="bg-white/60 backdrop-blur-sm border-white/30 hover:bg-white/70 transition-all">
-                                <CardContent className="p-4">
-                                    <div className="flex items-start gap-3">
-                                        <Avatar className="w-8 h-8 flex-shrink-0">
-                                            <AvatarFallback className={`bg-gradient-to-r ${sentence.color} text-white text-xs font-semibold`}>
-                                                {sentence.author.slice(0, 2).toUpperCase()}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-medium text-gray-800 text-sm">{sentence.author}</span>
-                                                <Badge variant="outline" className="text-xs">
-                                                    #{index + 1}
-                                                </Badge>
-                                                <span className="text-xs text-gray-500">{sentence.timestamp}</span>
+                                <div className="space-y-3 border-t border-white/40 pt-4">
+                                    <div className="flex items-center justify-between text-sm font-semibold text-gray-800">
+                                        <span className="flex items-center gap-2">
+                                            <Users className="w-5 h-5 text-emerald-500" />
+                                            Online ({staticOnlinePlayers.length})
+                                        </span>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 px-3 text-xs"
+                                            onClick={() => setShowPlayers(prev => !prev)}
+                                        >
+                                            {showPlayers ? "Hide" : "View"}
+                                        </Button>
+                                    </div>
+                                    {showPlayers && (
+                                        <div className="space-y-3 overflow-auto pr-1">
+                                            {staticOnlinePlayers.map(player => (
+                                                <div key={player.name} className="flex items-start gap-3">
+                                                    <Avatar className="w-9 h-9">
+                                                        <AvatarFallback className="bg-gradient-to-r from-indigo-400 to-indigo-600 text-white text-xs font-semibold">
+                                                            {player.name.slice(0, 2).toUpperCase()}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-800">{player.name}</p>
+                                                        <p className="text-xs text-gray-500">{player.role}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <p className="text-xs text-gray-500">
+                                        Players update in real time when connected to the live session.
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </aside>
+
+                    {/* Story Content */}
+                    <section className="lg:w-3/4 flex-1 h-full flex flex-col space-y-4 overflow-hidden">
+                        {/* Story Introduction */}
+                        <Card className="bg-white/70 backdrop-blur-sm border-white/30">
+                            <CardHeader>
+                                <CardTitle className="text-xl text-center bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                                    {story.title}
+                                </CardTitle>
+                                <p className="text-center text-gray-600 italic">{story.description}</p>
+                            </CardHeader>
+                        </Card>
+
+                        {/* Story Sentences */}
+                        <div className="space-y-3 flex-1 overflow-y-auto pr-1">
+                            {sentences.map((sentence, index) => (
+                                <Card key={sentence.id} className="bg-white/60 backdrop-blur-sm border-white/30 hover:bg-white/70 transition-all">
+                                    <CardContent className="p-4">
+                                        <div className="flex items-start gap-3">
+                                            <Avatar className="w-8 h-8 flex-shrink-0">
+                                                <AvatarFallback className={`bg-gradient-to-r ${sentence.color} text-white text-xs font-semibold`}>
+                                                    {sentence.author.slice(0, 2).toUpperCase()}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="font-medium text-gray-800 text-sm">{sentence.author}</span>
+                                                    <Badge variant="outline" className="text-xs">
+                                                        #{index + 1}
+                                                    </Badge>
+                                                    <span className="text-xs text-gray-500">{sentence.timestamp}</span>
+                                                </div>
+                                                <p className="text-gray-700 leading-relaxed">
+                                                    {sentence.text}
+                                                </p>
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleLikeSentence(sentence.id)}
+                                                        className={`text-xs ${sentence.isLiked ? 'text-red-500' : 'text-gray-500'}`}
+                                                    >
+                                                        ❤️ {sentence.likes || 0}
+                                                    </Button>
+                                                </div>
                                             </div>
-                                            <p className="text-gray-700 leading-relaxed">
-                                                {sentence.text}
-                                            </p>
-                                            <div className="flex items-center gap-2 mt-2">
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                            <div ref={messagesEndRef} />
+                        </div>
+
+                        {/* Input Area */}
+                        <Card className="bg-white/80 backdrop-blur-sm border-white/30">
+                            <CardContent className="p-2">
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-semibold text-gray-800">Continue the Story</h3>
+                                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                                            {isSyncing && <span className="flex items-center gap-1 text-blue-500"><span className="h-2 w-2 rounded-full bg-blue-500 animate-ping" />Syncing</span>}
+                                            {apiConfigured ? (
+                                                <span>Kahani AI ready</span>
+                                            ) : (
+                                                <span className="text-rose-500">Offline mode</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {apiConfigured && (
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleSuggestLine}
+                                                disabled={isSuggesting}
+                                            >
+                                                {isSuggesting ? "Summoning..." : "Summon Suggestion"}
+                                            </Button>
+                                            {suggestedLine && (
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => handleLikeSentence(sentence.id)}
-                                                    className={`text-xs ${sentence.isLiked ? 'text-red-500' : 'text-gray-500'}`}
+                                                    onClick={() => handleInputChange(suggestedLine)}
                                                 >
-                                                    ❤️ {sentence.likes || 0}
+                                                    Use Suggestion
                                                 </Button>
-                                            </div>
+                                            )}
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                        <div ref={messagesEndRef} />
-                    </div>
-
-                    {/* Input Area */}
-                    <Card className="bg-white/80 backdrop-blur-sm border-white/30 sticky bottom-4">
-                        <CardContent className="p-4">
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="font-semibold text-gray-800">Continue the Story</h3>
-                                    <div className="text-sm text-gray-600">
-                                        Add your creative sentence!
+                                    )}
+                                    {apiError && (
+                                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                                            {apiError}
+                                        </div>
+                                    )}
+                                    {suggestedLine && (
+                                        <div className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-xs text-purple-700">
+                                            <div className="flex items-center justify-between">
+                                                <p className="font-semibold">Kahani suggests:</p>
+                                                <button
+                                                    type="button"
+                                                    className="text-[11px] font-semibold uppercase tracking-wide text-purple-500"
+                                                    onClick={() => {
+                                                        setSuggestedLine(null)
+                                                        setSuggestionContext([])
+                                                    }}
+                                                >
+                                                    Dismiss
+                                                </button>
+                                            </div>
+                                            <p className="mt-1 text-sm">{suggestedLine}</p>
+                                            {suggestionContext.length > 0 && (
+                                                <details className="mt-2 text-[11px] text-purple-500">
+                                                    <summary className="cursor-pointer font-semibold">Context used ({suggestionContext.length})</summary>
+                                                    <div className="mt-1 space-y-1">
+                                                        {suggestionContext.slice(0, 3).map((context, index) => (
+                                                            <pre key={index} className="rounded bg-purple-100/70 p-2 text-[10px] text-purple-700 overflow-x-auto">
+                                                                {JSON.stringify(context, null, 2)}
+                                                            </pre>
+                                                        ))}
+                                                    </div>
+                                                </details>
+                                            )}
+                                        </div>
+                                    )}
+                                    <Textarea
+                                        placeholder="Write the next sentence in the story..."
+                                        value={newSentence}
+                                        onChange={(e) => handleInputChange(e.target.value)}
+                                        className="min-h-[44px] resize-none bg-white/70 border-white/50"
+                                        maxLength={300}
+                                        disabled={isSubmitting}
+                                    />
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-gray-500">
+                                            {newSentence.length}/300 characters
+                                        </span>
+                                        <Button
+                                            onClick={handleSubmitSentence}
+                                            disabled={!newSentence.trim() || isSubmitting}
+                                            className={`bg-gradient-to-r ${story.color} text-white hover:opacity-90`}
+                                        >
+                                            {isSubmitting ? (
+                                                <>
+                                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                                                    Adding...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Send className="w-4 h-4 mr-2" />
+                                                    Add to Story (+10 points)
+                                                </>
+                                            )}
+                                        </Button>
                                     </div>
                                 </div>
-                                <Textarea
-                                    placeholder="Write the next sentence in the story..."
-                                    value={newSentence}
-                                    onChange={(e) => setNewSentence(e.target.value)}
-                                    className="min-h-[80px] resize-none bg-white/70 border-white/50"
-                                    maxLength={300}
-                                    disabled={isSubmitting}
-                                />
-                                <div className="flex justify-between items-center">
-                                    <span className="text-xs text-gray-500">
-                                        {newSentence.length}/300 characters
-                                    </span>
-                                    <Button
-                                        onClick={handleSubmitSentence}
-                                        disabled={!newSentence.trim() || isSubmitting}
-                                        className={`bg-gradient-to-r ${story.color} text-white hover:opacity-90`}
-                                    >
-                                        {isSubmitting ? (
-                                            <>
-                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                                                Adding...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Send className="w-4 h-4 mr-2" />
-                                                Add to Story (+10 points)
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+                    </section>
                 </div>
-            </div>
+            </main>
         </div>
     )
 }
