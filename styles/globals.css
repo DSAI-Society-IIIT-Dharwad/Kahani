@@ -201,4 +201,11 @@
     transform-style: preserve-3d;
     perspective: 1000px;
   }
+
+  /* Google Fonts */
+  .shadows-into-light-regular {
+    font-family: var(--font-shadows-into-light), cursive;
+    font-weight: 400;
+    font-style: normal;
+  }
 }
