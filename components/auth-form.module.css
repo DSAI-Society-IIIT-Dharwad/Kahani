@@ -1,0 +1,227 @@
+
+.pageWrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.wrapper {
+  --input-focus: #2d8cf0;
+  --font-color: #323232;
+  --font-color-sub: #666;
+  --bg-color: #fff;
+  --main-color: #323232;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding: 0 1rem 3rem;
+  width: min(100%, 360px);
+}
+
+.cardSwitch {
+  width: 100%;
+}
+
+.switch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+
+.switchLabels {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--font-color-sub);
+}
+
+.switchLabel {
+  transition: color 0.2s ease;
+}
+
+.switchLabelActive {
+  color: var(--main-color);
+  text-decoration: underline;
+}
+
+.toggle {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  box-sizing: border-box;
+  border-radius: 9999px;
+  border: 2px solid var(--main-color);
+  box-shadow: 4px 4px 0 0 var(--main-color);
+  position: relative;
+  cursor: pointer;
+  background-color: var(--bg-color);
+  transition: background-color 0.3s ease;
+  width: 90px;
+  height: 30px;
+}
+
+.slider::before {
+  box-sizing: border-box;
+  position: absolute;
+  content: "";
+  height: 22px;
+  width: 22px;
+  border: 2px solid var(--main-color);
+  border-radius: 50%;
+  left: 4px;
+  top: 3px;
+  background-color: var(--bg-color);
+  box-shadow: 0 3px 0 var(--main-color);
+  transition: transform 0.3s ease;
+}
+
+.toggle:checked + .slider {
+  background-color: var(--input-focus);
+}
+
+.toggle:checked + .slider::before {
+  transform: translateX(54px);
+}
+
+.flipCardInner {
+  width: 100%;
+  max-width: 320px;
+  height: 380px;
+  position: relative;
+  background-color: transparent;
+  perspective: 1000px;
+  text-align: center;
+  transition: transform 0.8s;
+  transform-style: preserve-3d;
+  margin-top: 1.5rem;
+}
+
+.toggle:checked ~ .flipCardInner {
+  transform: rotateY(180deg);
+}
+
+.toggle:checked ~ .flipCardFront {
+  box-shadow: none;
+}
+
+.flipCardFront,
+.flipCardBack {
+  padding: 20px;
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  background: rgba(240, 242, 245, 0.9);
+  gap: 20px;
+  border-radius: 5px;
+  border: 2px solid var(--main-color);
+  box-shadow: 4px 4px var(--main-color);
+  width: 100%;
+  height: 100%;
+}
+
+.flipCardBack {
+  transform: rotateY(180deg);
+}
+
+.flipCardForm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+
+.title {
+  margin: 20px 0;
+  font-size: 25px;
+  font-weight: 900;
+  text-align: center;
+  color: var(--main-color);
+}
+
+.flipCardInput {
+    max-width: 280px;
+  max-width: 260px;
+  height: 40px;
+  border-radius: 5px;
+  border: 2px solid var(--main-color);
+    max-width: 220px;
+  box-shadow: 4px 4px var(--main-color);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--font-color);
+  padding: 5px 10px;
+  outline: none;
+}
+
+.flipCardInput::placeholder {
+  color: var(--font-color-sub);
+  opacity: 0.8;
+}
+
+.flipCardInput:focus {
+  border: 2px solid var(--input-focus);
+}
+
+.flipCardButton {
+  margin: 10px 0;
+  width: 140px;
+  height: 42px;
+  border-radius: 5px;
+  border: 2px solid var(--main-color);
+  background-color: var(--bg-color);
+  box-shadow: 4px 4px var(--main-color);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--font-color);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.flipCardButton:active {
+  box-shadow: 0 0 var(--main-color);
+  transform: translate(3px, 3px);
+}
+
+.status {
+  font-size: 14px;
+  font-weight: 500;
+  min-height: 20px;
+  color: #ea4e3c;
+  text-align: center;
+}
+
+.statusSuccess {
+  color: #1f7a4d;
+}
+
+@media (max-width: 640px) {
+  .switch {
+    transform: none;
+    gap: 0.75rem;
+  }
+
+  .flipCardInner {
+    width: 280px;
+    height: 340px;
+  }
+
+  .flipCardInput {
+    width: 220px;
+  }
+}

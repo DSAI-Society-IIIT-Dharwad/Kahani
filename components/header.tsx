@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import LoginModal from "@/components/login-modal"
+import Link from "next/dist/client/link"
 
 export default function Header() {
   const [showLogin, setShowLogin] = useState(false)
@@ -28,10 +29,9 @@ export default function Header() {
           onClick={() => setShowLogin(true)}
           className="absolute right-6 rounded-full bg-white/20 hover:bg-white/30 text-white font-medium px-8 py-2 backdrop-blur-sm border border-white/30 transition-all hover:scale-105"
         >
-          Login
+          <Link href="/auth">Login</Link>
         </Button>
       </header>
-      <LoginModal open={showLogin} onOpenChange={setShowLogin} />
     </>
   )
 }
