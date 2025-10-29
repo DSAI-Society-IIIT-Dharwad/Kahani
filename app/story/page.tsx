@@ -7,8 +7,17 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { KahaniApiError, editStoryLine, fetchStoryLines, suggestStoryLine, type StoryLinePayload, isKahaniApiConfigured } from "@/lib/kahani-api"
-import { ArrowLeft, BookOpen, Send, Users, Zap } from "lucide-react"
+import {
+    KahaniApiError,
+    canonicalizeStory,
+    editStoryLine,
+    fetchStoryLines,
+    suggestStoryLine,
+    type CanonicalStoryResponse,
+    type StoryLinePayload,
+    isKahaniApiConfigured,
+} from "@/lib/kahani-api"
+import { ArrowLeft, BookOpen, Download, Send, Users, Zap } from "lucide-react"
 
 interface StorySentence {
     id: number
@@ -36,8 +45,10 @@ interface Story {
     id: number
     title: string
     description: string
-    color: string
-    bgColor: string
+    accentColor: string
+    backgroundTone: string
+    buttonClass: string
+    textAccent: string
     image: string
     authorName: string
     authorTitle: string
@@ -52,21 +63,21 @@ const mockSentences: Record<number, StorySentence[]> = {
             text: "Luna stepped into the magical forest, her heart pounding with excitement as ancient trees whispered secrets in languages she had never heard before.",
             author: "Emma_Writer",
             timestamp: "2 hours ago",
-            color: "from-emerald-400 to-emerald-600"
+            color: "bg-emerald-500"
         },
         {
             id: 2,
             text: "The path ahead shimmered with golden light, and she noticed that her footsteps left tiny flowers blooming in the moss behind her.",
             author: "StoryMaster23",
             timestamp: "1 hour ago",
-            color: "from-green-400 to-green-600"
+            color: "bg-green-500"
         },
         {
             id: 3,
             text: "Suddenly, a wise old owl perched on a branch above called out, 'Welcome, Luna! The forest has been waiting for someone with your pure heart to help us.'",
             author: "MagicTeller",
             timestamp: "45 minutes ago",
-            color: "from-teal-400 to-teal-600"
+            color: "bg-teal-500"
         }
     ],
     2: [
@@ -75,14 +86,14 @@ const mockSentences: Record<number, StorySentence[]> = {
             text: "Captain Marina dove deeper into the crystal-clear waters, her breathing apparatus humming softly as schools of luminescent fish danced around her.",
             author: "OceanExplorer",
             timestamp: "3 hours ago",
-            color: "from-blue-400 to-blue-600"
+            color: "bg-sky-600"
         },
         {
             id: 2,
             text: "The ancient coral formations below seemed to pulse with their own inner light, revealing intricate patterns that told stories of civilizations long forgotten.",
             author: "DeepSeaDreamer",
             timestamp: "2 hours ago",
-            color: "from-cyan-400 to-cyan-600"
+            color: "bg-cyan-500"
         }
     ],
     // Add more mock data for other stories...
@@ -92,7 +103,7 @@ const mockSentences: Record<number, StorySentence[]> = {
             text: "Alex gripped the rocky ledge, feeling the mountain's ancient power thrumming through the stone as eagles soared majestically overhead.",
             author: "PeakSeeker",
             timestamp: "4 hours ago",
-            color: "from-orange-400 to-orange-600"
+            color: "bg-orange-500"
         }
     ]
 }
@@ -104,26 +115,28 @@ const staticOnlinePlayers = [
     { name: "MythMaker", role: "Twist Specialist" }
 ]
 
-const gradientPalette = [
-    "from-purple-400 to-purple-600",
-    "from-blue-400 to-blue-600",
-    "from-green-400 to-green-600",
-    "from-pink-400 to-pink-600",
-    "from-yellow-400 to-yellow-600",
-    "from-red-400 to-red-600",
-    "from-indigo-400 to-indigo-600",
-    "from-teal-400 to-teal-600"
+const accentPalette = [
+    "bg-emerald-600",
+    "bg-sky-600",
+    "bg-amber-600",
+    "bg-rose-600",
+    "bg-indigo-600",
+    "bg-teal-600",
+    "bg-purple-600",
+    "bg-slate-600"
 ]
 
-const getRandomGradient = () => gradientPalette[Math.floor(Math.random() * gradientPalette.length)]
+const getRandomAccent = () => accentPalette[Math.floor(Math.random() * accentPalette.length)]
 
 const stories = [
     {
         id: 1,
         title: "The Magical Forest",
         description: "A tale of wonder and discovery in an enchanted woodland",
-        color: "from-emerald-400 via-emerald-500 to-teal-600",
-        bgColor: "bg-gradient-to-br from-emerald-50 via-emerald-100 to-teal-200",
+        accentColor: "bg-emerald-600",
+        backgroundTone: "bg-emerald-50",
+        buttonClass: "bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500",
+        textAccent: "text-emerald-700",
         image: "/magical-forest-illustration.jpg",
         authorName: "Maya Evergreen",
         authorTitle: "Fantasy Storyteller",
@@ -133,8 +146,10 @@ const stories = [
         id: 2,
         title: "Ocean Dreams",
         description: "Dive deep into the mysteries beneath the waves",
-        color: "from-blue-400 via-cyan-500 to-indigo-600",
-        bgColor: "bg-gradient-to-br from-blue-50 via-cyan-100 to-indigo-200",
+        accentColor: "bg-sky-600",
+        backgroundTone: "bg-sky-50",
+        buttonClass: "bg-sky-600 hover:bg-sky-700 focus-visible:ring-sky-500",
+        textAccent: "text-sky-700",
         image: "/ocean-underwater-illustration.jpg",
         authorName: "Kai Mariner",
         authorTitle: "Explorer of the Deep",
@@ -144,8 +159,10 @@ const stories = [
         id: 3,
         title: "Mountain Quest",
         description: "An adventure to the peaks where eagles soar",
-        color: "from-orange-400 via-red-500 to-pink-600",
-        bgColor: "bg-gradient-to-br from-orange-50 via-red-100 to-pink-200",
+        accentColor: "bg-amber-600",
+        backgroundTone: "bg-amber-50",
+        buttonClass: "bg-amber-600 hover:bg-amber-700 focus-visible:ring-amber-500",
+        textAccent: "text-amber-700",
         image: "/mountain-peak-illustration.jpg",
         authorName: "Elias Summit",
         authorTitle: "Keeper of Legends",
@@ -173,6 +190,12 @@ export default function CollaborativeStoryGame() {
     const [suggestedLine, setSuggestedLine] = useState<string | null>(null)
     const [suggestionContext, setSuggestionContext] = useState<Array<Record<string, unknown>>>([])
     const [lastProposedLine, setLastProposedLine] = useState<string | null>(null)
+    const [storyLines, setStoryLines] = useState<StoryLinePayload[]>([])
+    const [isFinishing, setIsFinishing] = useState(false)
+    const [finishError, setFinishError] = useState<string | null>(null)
+    const [canonicalStory, setCanonicalStory] = useState<CanonicalStoryResponse | null>(null)
+    const [isDownloading, setIsDownloading] = useState(false)
+    const [downloadError, setDownloadError] = useState<string | null>(null)
     const apiConfigured = isKahaniApiConfigured()
 
     const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -187,7 +210,7 @@ export default function CollaborativeStoryGame() {
                     text,
                     author: line.user_id || "Kahani AI",
                     timestamp: line.created_at ? new Date(line.created_at).toLocaleString() : "Just now",
-                    color: getRandomGradient(),
+                    color: getRandomAccent(),
                     likes: 0,
                     isLiked: false
                 } satisfies StorySentence
@@ -217,6 +240,7 @@ export default function CollaborativeStoryGame() {
             try {
                 const lines = await fetchStoryLines()
                 if (!cancelled && Array.isArray(lines) && lines.length > 0) {
+                    setStoryLines(lines)
                     const mapped = transformStoryLines(lines)
                     if (mapped.length) {
                         setSentences(mapped)
@@ -252,7 +276,7 @@ export default function CollaborativeStoryGame() {
         const newPlayer: ActivePlayer = {
             id: 'current-user',
             name: playerName,
-            color: story?.color || "from-gray-400 to-gray-600",
+            color: story?.accentColor || "bg-slate-500",
             isTyping: false,
             lastActive: "Just now",
             score: 0,
@@ -270,7 +294,7 @@ export default function CollaborativeStoryGame() {
         setApiError(null)
 
         const trimmedText = newSentence.trim()
-        const sentenceColor = currentPlayer.color || getRandomGradient()
+        const sentenceColor = currentPlayer.color || getRandomAccent()
         const timestampLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
         const newSentenceObj: StorySentence = {
@@ -288,6 +312,8 @@ export default function CollaborativeStoryGame() {
         setSuggestedLine(null)
         setSuggestionContext([])
         setLastProposedLine(null)
+        setCanonicalStory(null)
+        setDownloadError(null)
 
         // Update player score
         setCurrentPlayer(prev => prev ? { ...prev, score: prev.score + 10 } : null)
@@ -300,12 +326,120 @@ export default function CollaborativeStoryGame() {
                     user_id: currentPlayer.id
                 }
                 await editStoryLine(payload)
+                const updatedLines = await fetchStoryLines()
+                setStoryLines(updatedLines)
+                const mapped = transformStoryLines(updatedLines)
+                if (mapped.length) {
+                    setSentences(mapped)
+                }
             }
         } catch (error) {
             const message = error instanceof KahaniApiError ? error.message : "We saved the line locally but syncing with Kahani failed."
             setApiError(message)
         } finally {
             setIsSubmitting(false)
+        }
+    }
+
+    const handleFinishStory = async () => {
+        if (!apiConfigured) {
+            setFinishError("Kahani backend is not configured.")
+            return
+        }
+
+        if (!story) {
+            setFinishError("Story metadata is unavailable. Try reloading the page.")
+            return
+        }
+
+        setIsFinishing(true)
+        setFinishError(null)
+        setDownloadError(null)
+
+        try {
+            const latestLines = await fetchStoryLines()
+            setStoryLines(latestLines)
+
+            if (!Array.isArray(latestLines) || latestLines.length === 0) {
+                throw new Error("No stored story lines available to finalize. Add a few lines first.")
+            }
+
+            const lineIds = latestLines.map(line => line.id).filter((id): id is number => typeof id === "number")
+
+            if (!lineIds.length) {
+                throw new Error("Unable to determine story line identifiers.")
+            }
+
+            const canonicalResult = await canonicalizeStory({ line_ids: lineIds, title: story.title })
+
+            if (typeof canonicalResult === "string") {
+                setCanonicalStory({
+                    id: Date.now(),
+                    title: story.title,
+                    full_text: canonicalResult,
+                    original_lines_count: lineIds.length,
+                    created_at: new Date().toISOString(),
+                })
+            } else {
+                setCanonicalStory(canonicalResult)
+            }
+        } catch (error) {
+            const message = error instanceof KahaniApiError ? error.message : (error instanceof Error ? error.message : "Unable to finish the story right now.")
+            setFinishError(message)
+        } finally {
+            setIsFinishing(false)
+        }
+    }
+
+    const handleDownloadPdf = async () => {
+        if (!canonicalStory) {
+            return
+        }
+
+        setIsDownloading(true)
+        setDownloadError(null)
+
+        try {
+            const { jsPDF } = await import("jspdf")
+            const doc = new jsPDF()
+            const margin = 18
+            const pageWidth = doc.internal.pageSize.getWidth()
+            const pageHeight = doc.internal.pageSize.getHeight()
+            const wrapWidth = pageWidth - margin * 2
+
+            const title = canonicalStory.title || story?.title || "Kahani Story"
+            const finalText = canonicalStory.full_text || ""
+
+            doc.setFont("helvetica", "bold")
+            doc.setFontSize(18)
+            doc.text(title, margin, 24)
+
+            doc.setFont("helvetica", "normal")
+            doc.setFontSize(12)
+
+            const lines = doc.splitTextToSize(finalText, wrapWidth) as string[]
+            let cursorY = 40
+
+            lines.forEach((line: string) => {
+                if (cursorY > pageHeight - margin) {
+                    doc.addPage()
+                    cursorY = margin
+                }
+                doc.text(line, margin, cursorY)
+                cursorY += 14
+            })
+
+            const safeTitle = title
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/(^-|-$)/g, "") || "kahani-story"
+
+            doc.save(`${safeTitle}.pdf`)
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Unable to generate PDF. Please try again."
+            setDownloadError(message)
+        } finally {
+            setIsDownloading(false)
         }
     }
 
@@ -368,10 +502,10 @@ export default function CollaborativeStoryGame() {
     // Join Game Screen
     if (!hasJoined) {
         return (
-            <div className={`min-h-screen ${story.bgColor} flex items-center justify-center`}>
-                <Card className="w-full max-w-md mx-4 bg-white/90 backdrop-blur-sm border-white/30">
+            <div className={`min-h-screen ${story.backgroundTone} flex items-center justify-center`}>
+                <Card className="w-full max-w-md mx-4 bg-white border border-neutral-200 shadow-md">
                     <CardHeader className="text-center">
-                        <CardTitle className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                        <CardTitle className={`text-2xl font-bold ${story.textAccent}`}>
                             Join Story Game
                         </CardTitle>
                         <p className="text-gray-600">{story.title}</p>
@@ -390,13 +524,13 @@ export default function CollaborativeStoryGame() {
                                 placeholder="Enter your player name..."
                                 value={playerName}
                                 onChange={(e) => setPlayerName(e.target.value)}
-                                className="w-full px-4 py-3 rounded-lg bg-white/70 border border-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-4 py-3 rounded-lg bg-white border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 onKeyPress={(e) => e.key === 'Enter' && handleJoinGame()}
                             />
                             <Button
                                 onClick={handleJoinGame}
                                 disabled={!playerName.trim()}
-                                className={`w-full bg-gradient-to-r ${story.color} text-white hover:opacity-90 py-3`}
+                                className={`w-full ${story.buttonClass} text-white py-3 transition-colors`}
                             >
                                 <Zap className="w-4 h-4 mr-2" />
                                 Join Game
@@ -415,9 +549,9 @@ export default function CollaborativeStoryGame() {
     }
 
     return (
-        <div className={`h-screen ${story.bgColor} transition-all duration-1000 flex flex-col overflow-hidden`}>
+        <div className={`min-h-screen ${story.backgroundTone} transition-all duration-1000 flex flex-col overflow-hidden`}>
             {/* Game Header */}
-            <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-white/20">
+            <div className="sticky top-0 z-50 bg-white border-b border-neutral-200 shadow-sm">
                 <div className="w-full px-6 py-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -431,7 +565,7 @@ export default function CollaborativeStoryGame() {
                                 Back to Stories
                             </Button>
                             <div>
-                                <h1 className="text-lg font-bold text-gray-800">{story.title}</h1>
+                                <h1 className={`text-lg font-bold ${story.textAccent}`}>{story.title}</h1>
                                 <p className="text-xs text-gray-600">Collaborative Story</p>
                             </div>
                         </div>
@@ -440,12 +574,12 @@ export default function CollaborativeStoryGame() {
                         {currentPlayer && (
                             <div className="flex items-center gap-2">
                                 <Avatar className="w-8 h-8">
-                                    <AvatarFallback className={`bg-gradient-to-r ${currentPlayer.color} text-white text-xs font-semibold`}>
+                                    <AvatarFallback className={`${currentPlayer.color} text-white text-xs font-semibold`}>
                                         {currentPlayer.avatar}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="text-sm">
-                                    <p className="font-medium text-gray-800">{currentPlayer.name}</p>
+                                    <p className={`font-medium ${story.textAccent}`}>{currentPlayer.name}</p>
                                     <p className="text-xs text-gray-600">{currentPlayer.score} points</p>
                                 </div>
                             </div>
@@ -455,13 +589,13 @@ export default function CollaborativeStoryGame() {
             </div>
 
             <main className="flex-1 overflow-hidden">
-                <div className="w-full h-full px-6 py-6 lg:flex lg:items-stretch lg:gap-6 overflow-hidden">
+                <div className="w-full h-full px-6 py-6 lg:flex lg:items-stretch lg:gap-8 overflow-x-hidden overflow-y-auto max-w-7xl mx-auto">
                     {/* Sidebar with author + players */}
                     <aside className="lg:w-1/4 mb-6 lg:mb-0 overflow-hidden lg:h-full">
-                        <Card className="bg-white/80 backdrop-blur-sm border-white/30 h-full flex flex-col">
+                        <Card className="bg-white border border-neutral-200 shadow-sm h-full flex flex-col">
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-lg text-gray-800 flex items-center gap-2">
-                                    <BookOpen className="w-5 h-5 text-blue-500" />
+                                <CardTitle className={`text-lg font-semibold ${story.textAccent} flex items-center gap-2`}>
+                                    <BookOpen className="w-5 h-5 text-slate-600" />
                                     Story Author & Players
                                 </CardTitle>
                             </CardHeader>
@@ -475,7 +609,7 @@ export default function CollaborativeStoryGame() {
                                         />
                                     </div>
                                     <div>
-                                        <p className="text-base font-semibold text-gray-800">{story.authorName}</p>
+                                        <p className={`text-base font-semibold ${story.textAccent}`}>{story.authorName}</p>
                                         <p className="text-sm text-gray-500">{story.authorTitle}</p>
                                     </div>
                                     <p className="text-sm text-gray-600 leading-relaxed">
@@ -483,10 +617,10 @@ export default function CollaborativeStoryGame() {
                                     </p>
                                 </div>
 
-                                <div className="space-y-3 border-t border-white/40 pt-4">
+                                <div className="space-y-3 border-t border-neutral-200 pt-4">
                                     <div className="flex items-center justify-between text-sm font-semibold text-gray-800">
                                         <span className="flex items-center gap-2">
-                                            <Users className="w-5 h-5 text-emerald-500" />
+                                            <Users className="w-5 h-5 text-slate-600" />
                                             Online ({staticOnlinePlayers.length})
                                         </span>
                                         <Button
@@ -503,7 +637,7 @@ export default function CollaborativeStoryGame() {
                                             {staticOnlinePlayers.map(player => (
                                                 <div key={player.name} className="flex items-start gap-3">
                                                     <Avatar className="w-9 h-9">
-                                                        <AvatarFallback className="bg-gradient-to-r from-indigo-400 to-indigo-600 text-white text-xs font-semibold">
+                                                        <AvatarFallback className="bg-slate-500 text-white text-xs font-semibold">
                                                             {player.name.slice(0, 2).toUpperCase()}
                                                         </AvatarFallback>
                                                     </Avatar>
@@ -526,9 +660,9 @@ export default function CollaborativeStoryGame() {
                     {/* Story Content */}
                     <section className="lg:w-3/4 flex-1 h-full flex flex-col space-y-4 overflow-hidden">
                         {/* Story Introduction */}
-                        <Card className="bg-white/70 backdrop-blur-sm border-white/30">
+                        <Card className="bg-white border border-neutral-200 shadow-sm">
                             <CardHeader>
-                                <CardTitle className="text-xl text-center bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                                <CardTitle className={`text-xl text-center font-semibold ${story.textAccent}`}>
                                     {story.title}
                                 </CardTitle>
                                 <p className="text-center text-gray-600 italic">{story.description}</p>
@@ -538,18 +672,18 @@ export default function CollaborativeStoryGame() {
                         {/* Story Sentences */}
                         <div className="space-y-3 flex-1 overflow-y-auto pr-1">
                             {sentences.map((sentence, index) => (
-                                <Card key={sentence.id} className="bg-white/60 backdrop-blur-sm border-white/30 hover:bg-white/70 transition-all">
+                                <Card key={sentence.id} className="bg-white border border-neutral-200 hover:bg-neutral-50 transition-colors">
                                     <CardContent className="p-4">
                                         <div className="flex items-start gap-3">
                                             <Avatar className="w-8 h-8 flex-shrink-0">
-                                                <AvatarFallback className={`bg-gradient-to-r ${sentence.color} text-white text-xs font-semibold`}>
+                                                <AvatarFallback className={`${sentence.color} text-white text-xs font-semibold`}>
                                                     {sentence.author.slice(0, 2).toUpperCase()}
                                                 </AvatarFallback>
                                             </Avatar>
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <span className="font-medium text-gray-800 text-sm">{sentence.author}</span>
-                                                    <Badge variant="outline" className="text-xs">
+                                                    <Badge variant="outline" className="text-xs border-neutral-300 text-neutral-600">
                                                         #{index + 1}
                                                     </Badge>
                                                     <span className="text-xs text-gray-500">{sentence.timestamp}</span>
@@ -576,7 +710,7 @@ export default function CollaborativeStoryGame() {
                         </div>
 
                         {/* Input Area */}
-                        <Card className="bg-white/80 backdrop-blur-sm border-white/30">
+                        <Card className="bg-white border border-neutral-200 shadow-sm">
                             <CardContent className="p-2">
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
@@ -609,11 +743,24 @@ export default function CollaborativeStoryGame() {
                                                     Use Suggestion
                                                 </Button>
                                             )}
+                                            <Button
+                                                size="sm"
+                                                onClick={handleFinishStory}
+                                                disabled={isFinishing}
+                                                className={`${story.buttonClass} text-white transition-colors`}
+                                            >
+                                                {isFinishing ? "Crafting finale..." : "Finish Story"}
+                                            </Button>
                                         </div>
                                     )}
                                     {apiError && (
                                         <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
                                             {apiError}
+                                        </div>
+                                    )}
+                                    {finishError && (
+                                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                                            {finishError}
                                         </div>
                                     )}
                                     {suggestedLine && (
@@ -650,7 +797,7 @@ export default function CollaborativeStoryGame() {
                                         placeholder="Write the next sentence in the story..."
                                         value={newSentence}
                                         onChange={(e) => handleInputChange(e.target.value)}
-                                        className="min-h-[44px] resize-none bg-white/70 border-white/50"
+                                        className="min-h-[44px] resize-none bg-white border border-neutral-200"
                                         maxLength={300}
                                         disabled={isSubmitting}
                                     />
@@ -661,7 +808,7 @@ export default function CollaborativeStoryGame() {
                                         <Button
                                             onClick={handleSubmitSentence}
                                             disabled={!newSentence.trim() || isSubmitting}
-                                            className={`bg-gradient-to-r ${story.color} text-white hover:opacity-90`}
+                                            className={`${story.buttonClass} text-white transition-colors`}
                                         >
                                             {isSubmitting ? (
                                                 <>
@@ -679,6 +826,48 @@ export default function CollaborativeStoryGame() {
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {canonicalStory && (
+                            <Card className="bg-white border border-neutral-200 shadow-md">
+                                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <CardTitle className={`text-lg font-semibold ${story.textAccent}`}>
+                                            Canonical Story Finale
+                                        </CardTitle>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            {canonicalStory.created_at ? `Created ${new Date(canonicalStory.created_at).toLocaleString()}` : "Freshly forged"}
+                                            {` • ${canonicalStory.original_lines_count ?? storyLines.length} lines summarized`}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleDownloadPdf}
+                                        disabled={isDownloading}
+                                        className="gap-1"
+                                    >
+                                        {isDownloading ? (
+                                            "Preparing..."
+                                        ) : (
+                                            <>
+                                                <Download className="h-4 w-4" />
+                                                Download PDF
+                                            </>
+                                        )}
+                                    </Button>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {downloadError && (
+                                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                                            {downloadError}
+                                        </div>
+                                    )}
+                                    <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-line">
+                                        {canonicalStory.full_text}
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        )}
                     </section>
                 </div>
             </main>

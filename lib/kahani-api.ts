@@ -70,6 +70,33 @@ export interface StoryLinePayload {
     created_at?: string
 }
 
+export interface ExtractLoreRequest {
+    line_ids: number[]
+}
+
+export interface LoreExtractionResponse {
+    characters: Array<Record<string, unknown>>
+    locations: Array<Record<string, unknown>>
+    events: Array<Record<string, unknown>>
+    items: Array<Record<string, unknown>>
+    total_entries: number
+}
+
+export type LoreCollectionResponse = Record<string, unknown>
+
+export interface CanonicalizeStoryRequest {
+    line_ids: number[]
+    title: string
+}
+
+export interface CanonicalStoryResponse {
+    id: number
+    title: string
+    full_text: string
+    original_lines_count: number
+    created_at: string
+}
+
 export const suggestStoryLine = (payload: SuggestStoryRequest) =>
     request<SuggestStoryResponse>("/api/story/suggest", {
         method: "POST",
@@ -96,5 +123,22 @@ export const retrieveContext = (query: string, top_k = 5, content_type?: string)
         method: "POST",
         body: JSON.stringify({ query, top_k, content_type }),
     })
+
+export const extractLore = (payload: ExtractLoreRequest) =>
+    request<LoreExtractionResponse>("/api/lore/extract", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    })
+
+export const fetchAllLore = () => request<LoreCollectionResponse>("/api/lore/all")
+
+export const canonicalizeStory = (payload: CanonicalizeStoryRequest) =>
+    request<CanonicalStoryResponse>("/api/story/canonicalize", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    })
+
+export const fetchCanonicalStory = (storyId: number) =>
+    request<CanonicalStoryResponse | string>(`/api/story/canonical/${storyId}`)
 
 export const isKahaniApiConfigured = () => Boolean(RAW_BASE_URL)

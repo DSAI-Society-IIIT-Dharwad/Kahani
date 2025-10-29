@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kahani AI - Story Writer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 30px;
+        }
+        
+        .panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .panel h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        textarea:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button.secondary {
+            background: #6c757d;
+        }
+        
+        .story-display {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 2px solid #ddd;
+        }
+        
+        .story-line {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .story-line.verified {
+            border-left-color: #28a745;
+        }
+        
+        .story-line .line-number {
+            font-weight: bold;
+            color: #667eea;
+            margin-right: 10px;
+        }
+        
+        .suggestion-box {
+            background: #e7f3ff;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .suggestion-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .context-item {
+            background: #fff;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-size: 0.9em;
+            border-left: 3px solid #ffc107;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .status-message {
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            display: none;
+        }
+        
+        .status-message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        
+        .status-message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #667eea;
+        }
+        
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card p {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎭 Kahani AI</h1>
+            <p>RAG-Powered Interactive Story Generation</p>
+        </header>
+        
+        <div class="main-content">
+            <!-- Left Panel: Story Creation -->
+            <div class="panel">
+                <h2>✍️ Create Story</h2>
+                
+                <div class="input-group">
+                    <label for="userPrompt">What happens next?</label>
+                    <textarea id="userPrompt" placeholder="E.g., 'The hero enters a dark cave...'"></textarea>
+                </div>
+                
+                <button onclick="getSuggestion()">🤖 Get AI Suggestion</button>
+                
+                <div id="loading" class="loading">
+                    <p>🔄 Thinking...</p>
+                </div>
+                
+                <div id="statusMessage" class="status-message"></div>
+                
+                <div id="suggestionBox" style="display: none;">
+                    <div class="suggestion-box">
+                        <h3>💡 AI Suggestion</h3>
+                        <p id="suggestionText"></p>
+                        
+                        <div style="margin-top: 15px;">
+                            <strong>Context Used:</strong>
+                            <div id="contextUsed"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="editedText">Edit if needed, then sign:</label>
+                        <textarea id="editedText"></textarea>
+                    </div>
+                    
+                    <button onclick="signAndStore()">✅ Sign & Add to Story</button>
+                    <button class="secondary" onclick="clearSuggestion()">❌ Discard</button>
+                </div>
+            </div>
+            
+            <!-- Right Panel: Story Display -->
+            <div class="panel">
+                <h2>📖 Your Story</h2>
+                
+                <div class="stats">
+                    <div class="stat-card">
+                        <h3 id="lineCount">0</h3>
+                        <p>Lines</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="verifiedCount">0</h3>
+                        <p>Verified</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="loreCount">0</h3>
+                        <p>Lore Entries</p>
+                    </div>
+                </div>
+                
+                <div class="story-display" id="storyDisplay">
+                    <p style="color: #999; text-align: center;">Your story will appear here...</p>
+                </div>
+                
+                <button onclick="refreshStory()">🔄 Refresh</button>
+                <button onclick="extractLore()">🗺️ Extract Lore</button>
+                <button onclick="canonicalizeStory()">📚 Finalize Story</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = '';
+        let currentSuggestionId = null;
+        let currentSuggestion = '';
+        
+        // Load story on page load
+        window.onload = function() {
+            refreshStory();
+        };
+        
+        async function getSuggestion() {
+            const prompt = document.getElementById('userPrompt').value.trim();
+            
+            if (!prompt) {
+                showMessage('Please enter a prompt', 'error');
+                return;
+            }
+            
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('suggestionBox').style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/story/suggest`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_prompt: prompt,
+                        user_id: 'web_user'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                currentSuggestionId = data.id;
+                currentSuggestion = data.suggestion;
+                
+                document.getElementById('suggestionText').textContent = data.suggestion;
+                document.getElementById('editedText').value = data.suggestion;
+                
+                // Display context
+                const contextDiv = document.getElementById('contextUsed');
+                contextDiv.innerHTML = '';
+                if (data.context_used && data.context_used.length > 0) {
+                    data.context_used.slice(0, 3).forEach(ctx => {
+                        const div = document.createElement('div');
+                        div.className = 'context-item';
+                        div.textContent = ctx.text;
+                        contextDiv.appendChild(div);
+                    });
+                } else {
+                    contextDiv.innerHTML = '<em>No previous context</em>';
+                }
+                
+                document.getElementById('suggestionBox').style.display = 'block';
+                showMessage('Suggestion generated!', 'success');
+                
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            } finally {
+                document.getElementById('loading').classList.remove('active');
+            }
+        }
+        
+        async function signAndStore() {
+            const editedText = document.getElementById('editedText').value.trim();
+            
+            if (!editedText) {
+                showMessage('Please provide text to sign', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/story/edit`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        llm_proposed: currentSuggestion,
+                        final_text: editedText,
+                        user_id: 'web_user'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                showMessage('Story line added and signed! ✅', 'success');
+                clearSuggestion();
+                document.getElementById('userPrompt').value = '';
+                refreshStory();
+                
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+        
+        function clearSuggestion() {
+            document.getElementById('suggestionBox').style.display = 'none';
+            currentSuggestionId = null;
+            currentSuggestion = '';
+        }
+        
+        async function refreshStory() {
+            try {
+                const response = await fetch(`${API_BASE}/api/story/lines?verified_only=false`);
+                const lines = await response.json();
+                
+                const displayDiv = document.getElementById('storyDisplay');
+                
+                if (lines.length === 0) {
+                    displayDiv.innerHTML = '<p style="color: #999; text-align: center;">Your story will appear here...</p>';
+                } else {
+                    displayDiv.innerHTML = '';
+                    lines.forEach(line => {
+                        const div = document.createElement('div');
+                        div.className = 'story-line' + (line.verified ? ' verified' : '');
+                        div.innerHTML = `<span class="line-number">#${line.line_number}</span>${line.text}`;
+                        displayDiv.appendChild(div);
+                    });
+                }
+                
+                // Update stats
+                document.getElementById('lineCount').textContent = lines.length;
+                document.getElementById('verifiedCount').textContent = lines.filter(l => l.verified).length;
+                
+            } catch (error) {
+                console.error('Error refreshing story:', error);
+            }
+        }
+        
+        async function extractLore() {
+            try {
+                const linesResponse = await fetch(`${API_BASE}/api/story/lines?verified_only=true`);
+                const lines = await linesResponse.json();
+                
+                if (lines.length === 0) {
+                    showMessage('No verified lines to extract lore from', 'error');
+                    return;
+                }
+                
+                const lineIds = lines.map(l => l.id);
+                
+                showMessage('Extracting lore... This may take a moment.', 'success');
+                
+                const response = await fetch(`${API_BASE}/api/lore/extract`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ line_ids: lineIds })
+                });
+                
+                const loreData = await response.json();
+                
+                document.getElementById('loreCount').textContent = loreData.total_entries;
+                showMessage(`Extracted ${loreData.total_entries} lore entries!`, 'success');
+                
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function canonicalizeStory() {
+            if (!confirm('This will create a finalized canonical version of your story. Continue?')) {
+                return;
+            }
+            
+            try {
+                showMessage('Creating canonical version...', 'success');
+                
+                const response = await fetch(`${API_BASE}/api/story/canonicalize`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        title: prompt('Enter story title:', 'My Kahani') || 'Untitled Story'
+                    })
+                });
+                
+                const canonicalStory = await response.json();
+                
+                // Display canonical story
+                const displayDiv = document.getElementById('storyDisplay');
+                displayDiv.innerHTML = `
+                    <h3 style="color: #667eea; margin-bottom: 15px;">📚 ${canonicalStory.title}</h3>
+                    <div style="white-space: pre-wrap; line-height: 1.6;">${canonicalStory.full_text}</div>
+                    <p style="margin-top: 20px; color: #999; font-size: 0.9em;">
+                        Created from ${canonicalStory.original_lines_count} lines
+                    </p>
+                `;
+                
+                showMessage('Canonical story created!', 'success');
+                
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+        
+        function showMessage(message, type) {
+            const msgDiv = document.getElementById('statusMessage');
+            msgDiv.textContent = message;
+            msgDiv.className = `status-message ${type}`;
+            
+            setTimeout(() => {
+                msgDiv.className = 'status-message';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
