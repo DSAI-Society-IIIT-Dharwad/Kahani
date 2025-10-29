@@ -24,6 +24,8 @@
 - 🌍 **Decentralized Storage**: IPFS-based content addressing for immutability
 - ⚡ **Real-time Collaboration**: Multiple users contribute to a single narrative
 
+- Detailed Documentation:- https://github.com/DSAI-Society-IIIT-Dharwad/Kahani/tree/main/docs
+
 ### Key Innovation
 
 Unlike traditional writing platforms, Kahani **automatically tracks every contributor's input** and generates NFTs with **proportional co-authorship ownership**, enabling fair recognition and future royalty distribution.
