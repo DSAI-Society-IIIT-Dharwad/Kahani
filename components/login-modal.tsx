@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +14,7 @@ interface LoginModalProps {
 }
 
 export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
+  const router = useRouter()
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -42,6 +44,7 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
 
         // Sign-up success (Supabase may send confirmation email depending on your project settings)
         onOpenChange(false)
+        router.push("/auth")
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) {
@@ -52,6 +55,7 @@ export default function LoginModal({ open, onOpenChange }: LoginModalProps) {
 
         // Login success
         onOpenChange(false)
+        router.push("/dashboard")
       }
     } catch (err: any) {
       setError(err?.message || "Something went wrong")

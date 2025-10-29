@@ -1,0 +1,25 @@
+node:
+  id: "node-1"
+  type: "validator"
+  port: 8080
+
+network:
+  bootstrap_peers:
+    - "node-1"
+  consensus: "pbft"
+
+supabase:
+  url: "https://ndytbyiomtyniosiaqws.supabase.co"
+  anon_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5keXRieWlvbXR5bmlvc2lhcXdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE2MzQzNDIsImV4cCI6MjA3NzIxMDM0Mn0.9sRrRz5E3CdEl8GufqmFHr8PzsGQ4wy07Xzdwmw4cwY"
+  service_role_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5keXRieWlvbXR5bmlvc2lhcXdzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTYzNDM0MiwiZXhwIjoyMDc3MjEwMzQyfQ.yQa97CcKLLxkKLbWVefYs5ujeHAF7LqFapaCCwYRrfg"
+  poll_interval: "30s"
+
+storage:
+  badger_path: "./devnode-data"
+  ipfs_api: "http://localhost:5001"
+
+api:
+  enable_websocket: true
+  rate_limit: 100
+  allowed_origins:
+    - "http://localhost:3000"

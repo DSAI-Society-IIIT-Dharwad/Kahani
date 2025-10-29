@@ -1,12 +1,13 @@
 "use client"
 
 import { ChangeEvent, FormEvent, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import supabase from "@/lib/supabaseClient"
 import styles from "./auth-form.module.css"
 
 export default function AuthForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [status, setStatus] = useState<{
     message: string
     type: "error" | "success"
@@ -48,7 +49,9 @@ export default function AuthForm() {
       type: "success",
       form: "signin",
     })
-    setTimeout(() => router.push("/dashboard"), 800)
+
+    const redirectTo = searchParams.get("redirect") || "/dashboard"
+    setTimeout(() => router.push(redirectTo), 800)
   }
 
   const handleSignUp = async (event: FormEvent<HTMLFormElement>) => {
@@ -96,10 +99,6 @@ export default function AuthForm() {
       <div className={styles.wrapper}>
         <div className={styles.cardSwitch}>
           <label className={styles.switch}>
-            <div className={styles.switchLabels}>
-              <span className={`${styles.switchLabel} ${!isSignUp ? styles.switchLabelActive : ""}`}>Log in</span>
-              <span className={`${styles.switchLabel} ${isSignUp ? styles.switchLabelActive : ""}`}>Sign up</span>
-            </div>
             <input
               type="checkbox"
               className={styles.toggle}
@@ -107,8 +106,9 @@ export default function AuthForm() {
               onChange={handleToggle}
               aria-label={isSignUp ? "Switch to log in" : "Switch to sign up"}
             />
-            <span className={styles.slider} />
-            <div className={styles.flipCardInner}>
+            <div className={styles.cardFrame}>
+              <span className={styles.slider} />
+              <div className={styles.flipCardInner}>
               <div className={styles.flipCardFront}>
                 <div className={styles.title}>Log in</div>
                 <form className={styles.flipCardForm} onSubmit={handleSignIn}>
@@ -174,6 +174,7 @@ export default function AuthForm() {
                   </button>
                 </form>
               </div>
+            </div>
             </div>
           </label>
         </div>

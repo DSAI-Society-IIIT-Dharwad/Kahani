@@ -1,10 +1,37 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 
 export async function middleware(request: NextRequest) {
-  // For now, just pass through all requests
-  // We can add auth logic here later once Supabase is fully integrated
-  return NextResponse.next()
+  const { pathname } = request.nextUrl
+
+  // Allow static assets and Next internals without touching auth
+  if (pathname.startsWith("/_next") || pathname.includes(".")) {
+    return NextResponse.next()
+  }
+
+  const response = NextResponse.next()
+  const supabase = createMiddlewareClient({ req: request, res: response })
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  const isAuthRoute = pathname.startsWith("/auth")
+  const isPublicLanding = pathname === "/"
+  const isApiRoute = pathname.startsWith("/api")
+
+  if (!session && !isAuthRoute && !isPublicLanding && !isApiRoute) {
+    const redirectUrl = new URL("/auth", request.url)
+    redirectUrl.searchParams.set("redirect", pathname)
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  if (session && isAuthRoute) {
+    const redirectUrl = new URL("/dashboard", request.url)
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  return response
 }
 
 export const config = {

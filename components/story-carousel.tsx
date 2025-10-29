@@ -60,7 +60,7 @@ const stories = [
     description: "Hidden treasures in underground crystal formations",
     color: "from-violet-400 via-purple-500 to-indigo-600",
     bgColor: "bg-gradient-to-br from-violet-50 via-purple-100 to-indigo-200",
-    image: "/crystal-cave-illustration.jpg",
+    image: "/crystal-cave-illustration.png",
   },
   {
     id: 8,
@@ -68,7 +68,7 @@ const stories = [
     description: "Floating kingdoms high above the clouds",
     color: "from-sky-400 via-blue-500 to-cyan-600",
     bgColor: "bg-gradient-to-br from-sky-50 via-blue-100 to-cyan-200",
-    image: "/sky-castle-illustration.jpg",
+    image: "/sky-castle-illustration.png",
   },
 ]
 

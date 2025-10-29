@@ -17,6 +17,13 @@ import {
     type StoryLinePayload,
     isKahaniApiConfigured,
 } from "@/lib/kahani-api"
+import {
+    fetchChainHealth,
+    fetchChainStory,
+    isChainApiConfigured,
+    type ChainHealth,
+    type ChainStoryResponse,
+} from "@/lib/blockchain-api"
 import { ArrowLeft, BookOpen, Download, Send, Users, Zap } from "lucide-react"
 
 interface StorySentence {
@@ -174,7 +181,10 @@ const stories = [
 export default function CollaborativeStoryGame() {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const storyId = parseInt(searchParams.get('id') || '1')
+    const storyIdParam = searchParams.get("id")
+    const parsedStoryId = storyIdParam ? Number(storyIdParam) : Number.NaN
+    const storyId = Number.isFinite(parsedStoryId) && parsedStoryId > 0 ? parsedStoryId : 1
+    const chainStoryId = storyIdParam ?? String(storyId)
 
     const [story, setStory] = useState<Story | null>(null)
     const [sentences, setSentences] = useState<StorySentence[]>([])
@@ -197,8 +207,32 @@ export default function CollaborativeStoryGame() {
     const [isDownloading, setIsDownloading] = useState(false)
     const [downloadError, setDownloadError] = useState<string | null>(null)
     const apiConfigured = isKahaniApiConfigured()
+    const chainConfigured = isChainApiConfigured()
+    const [chainHealth, setChainHealth] = useState<ChainHealth | null>(null)
+    const [chainStory, setChainStory] = useState<ChainStoryResponse | null>(null)
+    const [isChainLoading, setIsChainLoading] = useState(false)
+    const [chainError, setChainError] = useState<string | null>(null)
 
     const messagesEndRef = useRef<HTMLDivElement>(null)
+
+    const formatUptime = (seconds?: number) => {
+        if (!seconds || Number.isNaN(seconds)) {
+            return null
+        }
+
+        const minutes = Math.floor(seconds / 60)
+        if (minutes < 1) {
+            return `${seconds}s`
+        }
+
+        const hours = Math.floor(minutes / 60)
+        if (hours < 1) {
+            return `${minutes}m`
+        }
+
+        const remainingMinutes = minutes % 60
+        return `${hours}h${remainingMinutes ? ` ${remainingMinutes}m` : ""}`
+    }
 
     const transformStoryLines = (lines: StoryLinePayload[]) => {
         return lines
@@ -264,6 +298,73 @@ export default function CollaborativeStoryGame() {
             cancelled = true
         }
     }, [storyId, apiConfigured])
+
+    useEffect(() => {
+        if (!chainConfigured) {
+            return
+        }
+
+        let cancelled = false
+
+        const loadHealth = async () => {
+            try {
+                const data = await fetchChainHealth()
+                if (!cancelled) {
+                    setChainHealth(data)
+                    setChainError(null)
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    const message =
+                        error instanceof Error ? error.message : "Unable to reach chain health endpoint."
+                    setChainHealth(null)
+                    setChainError(message)
+                }
+            }
+        }
+
+        loadHealth()
+
+        return () => {
+            cancelled = true
+        }
+    }, [chainConfigured])
+
+    useEffect(() => {
+        if (!chainConfigured || !chainStoryId) {
+            return
+        }
+
+        let cancelled = false
+        setIsChainLoading(true)
+        setChainError(null)
+
+        const loadChainStory = async () => {
+            try {
+                const data = await fetchChainStory(chainStoryId)
+                if (!cancelled) {
+                    setChainStory(data)
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    const message =
+                        error instanceof Error ? error.message : "Unable to reach chain story endpoint."
+                    setChainError(message)
+                    setChainStory(null)
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsChainLoading(false)
+                }
+            }
+        }
+
+        loadChainStory()
+
+        return () => {
+            cancelled = true
+        }
+    }, [chainConfigured, chainStoryId])
 
     // Auto-scroll to bottom
     useEffect(() => {
@@ -634,6 +735,100 @@ export default function CollaborativeStoryGame() {
                                     </div>
                                     {showPlayers && (
                                         <div className="space-y-3 overflow-auto pr-1">
+
+                                        {chainConfigured && (
+                                            <div className="rounded-xl border border-cyan-200 bg-cyan-50/40 p-4">
+                                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-slate-800">On-chain status</p>
+                                                        <p className="text-xs text-slate-600">
+                                                            {chainHealth ? `Node reports ${chainHealth.status}` : "Contacting blockchain service"}
+                                                        </p>
+                                                    </div>
+                                                    <Badge variant="outline">
+                                                        {chainHealth?.latest_block_height != null
+                                                            ? `Latest block #${chainHealth.latest_block_height}`
+                                                            : "Awaiting blocks"}
+                                                    </Badge>
+                                                </div>
+                                                {chainError && <p className="mt-3 text-xs text-red-500">{chainError}</p>}
+                                                {!chainError && (
+                                                    <>
+                                                        <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-600">
+                                                            {formatUptime(chainHealth?.uptime_seconds) && (
+                                                                <span>Uptime {formatUptime(chainHealth?.uptime_seconds) ?? "--"}</span>
+                                                            )}
+                                                            {chainHealth?.latest_tx_height != null && (
+                                                                <span>Latest tx #{chainHealth.latest_tx_height}</span>
+                                                            )}
+                                                            {typeof chainHealth?.consensus_ready === "boolean" && (
+                                                                <span>
+                                                                    Consensus {chainHealth.consensus_ready ? "ready" : "warming up"}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="mt-4 rounded-lg border border-slate-200 bg-white/70 p-3">
+                                                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                                                Recent on-chain contributions
+                                                            </p>
+                                                            {isChainLoading ? (
+                                                                <p className="mt-2 text-sm text-slate-600">Syncing with chain...</p>
+                                                            ) : chainStory?.contributions?.length ? (
+                                                                <div className="mt-2 flex max-h-40 flex-col gap-2 overflow-y-auto">
+                                                                    {chainStory.contributions
+                                                                        .slice(-5)
+                                                                        .reverse()
+                                                                        .map((contribution) => (
+                                                                            <div
+                                                                                key={contribution.contribution_id}
+                                                                                className="rounded-md border border-slate-200 bg-white/80 p-2"
+                                                                            >
+                                                                                <div className="flex items-center justify-between text-xs text-slate-500">
+                                                                                    <span className="font-medium text-slate-700">
+                                                                                        {contribution.author}
+                                                                                    </span>
+                                                                                    <span>
+                                                                                        {new Date(contribution.timestamp).toLocaleString()}
+                                                                                    </span>
+                                                                                </div>
+                                                                                <p className="mt-1 text-sm text-slate-700 line-clamp-2">
+                                                                                    {contribution.text}
+                                                                                </p>
+                                                                            </div>
+                                                                        ))}
+                                                                </div>
+                                                            ) : (
+                                                                <p className="mt-2 text-sm text-slate-600">
+                                                                    No chain contributions yet. Publish a line to be the first on the ledger.
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        {chainStory?.authors?.length ? (
+                                                            <div className="mt-3 flex flex-wrap gap-2 text-xs text-emerald-700">
+                                                                {chainStory.authors.map((author) => (
+                                                                    <Badge key={author} variant="secondary">
+                                                                        {author}
+                                                                    </Badge>
+                                                                ))}
+                                                            </div>
+                                                        ) : null}
+                                                        {chainStory?.nfts?.length ? (
+                                                            <div className="mt-3 flex flex-wrap gap-2 text-xs text-purple-700">
+                                                                {chainStory.nfts.map((nft, index) => {
+                                                                    const tokenIdValue = nft && typeof nft === "object" ? (nft["token_id"] as string | undefined) : undefined
+                                                                    const label = tokenIdValue ? `NFT #${tokenIdValue}` : `NFT draft ${index + 1}`
+                                                                    return (
+                                                                        <Badge key={`${label}-${index}`} variant="outline">
+                                                                            {label}
+                                                                        </Badge>
+                                                                    )
+                                                                })}
+                                                            </div>
+                                                        ) : null}
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
                                             {staticOnlinePlayers.map(player => (
                                                 <div key={player.name} className="flex items-start gap-3">
                                                     <Avatar className="w-9 h-9">

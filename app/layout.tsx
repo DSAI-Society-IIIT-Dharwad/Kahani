@@ -4,6 +4,7 @@ import { Poppins } from "next/font/google"
 import { Shadows_Into_Light } from "next/font/google"
 import { Titan_One } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import TopBar from "@/components/top-bar"
 import "./globals.css"
 
 const poppins = Poppins({
@@ -38,6 +39,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${poppins.variable} ${shadowsIntoLight.variable} ${titanOne.variable} font-sans antialiased`}>
+        <TopBar />
         {children}
         <Analytics />
       </body>

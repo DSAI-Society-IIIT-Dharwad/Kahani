@@ -29,27 +29,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  gap: 1.25rem;
   width: 100%;
-}
-
-.switchLabels {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--font-color-sub);
-}
-
-.switchLabel {
-  transition: color 0.2s ease;
-}
-
-.switchLabelActive {
-  color: var(--main-color);
-  text-decoration: underline;
 }
 
 .toggle {
@@ -59,17 +40,29 @@
   height: 0;
 }
 
+.cardFrame {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding-top: 0;
+}
+
 .slider {
   box-sizing: border-box;
   border-radius: 9999px;
   border: 2px solid var(--main-color);
   box-shadow: 4px 4px 0 0 var(--main-color);
-  position: relative;
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
   cursor: pointer;
   background-color: var(--bg-color);
   transition: background-color 0.3s ease;
-  width: 90px;
+  width: 82px;
   height: 30px;
+  z-index: 3;
 }
 
 .slider::before {
@@ -87,12 +80,12 @@
   transition: transform 0.3s ease;
 }
 
-.toggle:checked + .slider {
+.toggle:checked ~ .cardFrame .slider {
   background-color: var(--input-focus);
 }
 
-.toggle:checked + .slider::before {
-  transform: translateX(54px);
+.toggle:checked ~ .cardFrame .slider::before {
+  transform: translateX(52px);
 }
 
 .flipCardInner {
@@ -105,20 +98,20 @@
   text-align: center;
   transition: transform 0.8s;
   transform-style: preserve-3d;
-  margin-top: 1.5rem;
+  margin-top: 0;
 }
 
-.toggle:checked ~ .flipCardInner {
+.toggle:checked ~ .cardFrame .flipCardInner {
   transform: rotateY(180deg);
 }
 
-.toggle:checked ~ .flipCardFront {
+.toggle:checked ~ .cardFrame .flipCardFront {
   box-shadow: none;
 }
 
 .flipCardFront,
 .flipCardBack {
-  padding: 20px;
+  padding: 72px 24px 28px;
   position: absolute;
   display: flex;
   flex-direction: column;
@@ -162,6 +155,11 @@
   border: 2px solid var(--main-color);
     max-width: 220px;
   box-shadow: 4px 4px var(--main-color);
+
+  .flipCardFront,
+  .flipCardBack {
+    padding: 64px 20px 24px;
+  }
   font-size: 15px;
   font-weight: 600;
   color: var(--font-color);
